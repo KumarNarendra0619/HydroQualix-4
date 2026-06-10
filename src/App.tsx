@@ -819,7 +819,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/50">
-                  {data.map((row: any, i) => (
+                  {data.map((row: any, i: number) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -1047,8 +1047,8 @@ export default function App() {
                             color: "#171717",
                             marginBottom: "4px",
                           }}
-                          formatter={(val: number) => [
-                            val.toFixed(2),
+                          formatter={(val: any) => [
+                            Number(val).toFixed(2),
                             "Score Impact",
                           ]}
                         />

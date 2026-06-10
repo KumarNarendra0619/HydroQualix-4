@@ -140,6 +140,7 @@ You are a Water Intelligence Decision Support Engine powered by Gemini AI inside
         }
       }
 
+      if (!response) throw new Error("No response from AI model");
       return res.json({ text: response.text });
     } catch (error: any) {
       console.error("Gemini API Error:", error);

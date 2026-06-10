@@ -164,7 +164,7 @@ export function ReportsGenerator({ siteResults, data, methodConfig }: ReportsGen
     const step = range / classCount;
     
     // Label classes generic
-    const dist = [];
+    const dist: {label: string; minScore: number; maxScore: number; sites: string[]; count: number}[] = [];
     for (let i = 0; i < classCount; i++) {
         const thresholdLow = min + (i * step);
         const thresholdHigh = min + ((i + 1) * step);
@@ -321,7 +321,7 @@ export function ReportsGenerator({ siteResults, data, methodConfig }: ReportsGen
                       <YAxis tick={{ fontSize, fill: fontColor, fontFamily }} />
                       <RechartsTooltip 
                         contentStyle={{ background: '#fff', border: '1px solid #ccc', borderRadius: '4px', color: fontColor, fontSize, fontFamily }}
-                        formatter={(val: number) => val.toFixed(2)}
+                        formatter={(val: any) => [Number(val).toFixed(2), ""]}
                       />
                       <Bar dataKey="score" radius={[4, 4, 0, 0]}>
                         {siteResults.map((entry, index) => (
@@ -369,7 +369,7 @@ export function ReportsGenerator({ siteResults, data, methodConfig }: ReportsGen
                       <YAxis tick={{ fontSize, fill: fontColor, fontFamily }} />
                       <RechartsTooltip 
                          contentStyle={{ background: '#fff', border: '1px solid #ccc', borderRadius: '4px', color: fontColor, fontSize, fontFamily }}
-                         formatter={(val: number) => val.toFixed(3)}
+                         formatter={(val: any) => [Number(val).toFixed(3), ""]}
                       />
                       <Line type="monotone" dataKey="value" stroke={chartColor} strokeWidth={3} dot={{ r: 4, fill: chartColor }} activeDot={{ r: 6 }} />
                     </LineChart>

@@ -13,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 24.x]
+        node-version: [18.x, 20.x]
 
     steps:
     - uses: actions/checkout@v4
@@ -22,9 +22,5 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - name: Clear npm cache and install dependencies
-      run: |
-        npm cache clean --force
-        rm -rf node_modules package-lock.json
-        npm ci
+    - run: npm ci
     - run: npm run build
