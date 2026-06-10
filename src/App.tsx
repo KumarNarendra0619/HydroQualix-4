@@ -24,6 +24,7 @@ import {
   Upload,
   Layers,
   Sparkles,
+  Activity,
 } from "lucide-react";
 import {
   MapContainer,
@@ -39,10 +40,10 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import { toPng } from "html-to-image";
+import html2canvas from "html2canvas";
 import { kml } from "@tmcw/togeojson";
-import * as shp from "shpjs";
 import logoImage from "./assets/images/regenerated_image_1781058596490.png";
+import { GeomanControl } from "./components/GeomanControl";
 
 function parseCoordinate(coord: string | number): number {
   if (typeof coord === 'number') return coord;
@@ -158,34 +159,32 @@ export default function App() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    if (file.name.toLowerCase().endsWith('.zip')) {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        try {
-          const buffer = event.target?.result as ArrayBuffer;
-          const parser = typeof shp === 'function' ? shp : (shp as any).parseZip || (shp as any).default;
-          if (!parser) throw new Error("shpjs parser not found");
-          const geojson = await parser(buffer);
-          setImportedGeoJson(geojson);
-        } catch (err) {
-          console.error("Failed to parse shapefile", err);
-          alert("Failed to parse Shapefile. Ensure it's a valid zipped shapefile.");
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result;
+      if (typeof text === "string") {
+        if (file.name.toLowerCase().endsWith('.json') || file.name.toLowerCase().endsWith('.geojson')) {
+          try {
+            const geojson = JSON.parse(text);
+            setImportedGeoJson(geojson);
+          } catch (err) {
+            console.error("Failed to parse JSON", err);
+            alert("Failed to parse JSON file. Ensure it's a valid GeoJSON format.");
+          }
+        } else {
+          try {
+            const dom = new DOMParser().parseFromString(text, "text/xml");
+            const converted = kml(dom);
+            setImportedGeoJson(converted);
+          } catch (err) {
+            console.error("Failed to parse KML", err);
+            alert("Failed to parse KML file.");
+          }
         }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result;
-        if (typeof text === "string") {
-          const dom = new DOMParser().parseFromString(text, "text/xml");
-          const converted = kml(dom);
-          setImportedGeoJson(converted);
-        }
-      };
-      reader.readAsText(file);
-    }
+      }
+    };
+    reader.readAsText(file);
     
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -393,22 +392,33 @@ export default function App() {
     const el = document.getElementById("export-container");
     if (!el) return;
     try {
-      const imgData = await toPng(el, {
-        cacheBust: true,
-        pixelRatio: 2,
+      // Temporarily add a class to body to prevent scrollbars or layout shifts
+      document.body.style.overflow = 'hidden';
+      
+      const canvas = await html2canvas(el, {
+        useCORS: true,
+        allowTaint: false,
+        scale: 2,
         backgroundColor: "#f5f5f5",
-        skipFonts: true,
-        filter: (node) => {
-          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') {
-            if ((node as HTMLLinkElement).href.includes('fonts.googleapis.com')) return false;
+        ignoreElements: (node) => {
+          // skip google fonts causing CORS errors with html2canvas
+          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
+            return true;
           }
-          return true;
+          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
+            return true; // Filter Google map tiles
+          }
+          return false;
         }
       });
+      
+      document.body.style.overflow = '';
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (el.offsetHeight * pdfWidth) / el.offsetWidth;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
       pdf.setFontSize(16);
       pdf.text(
@@ -417,10 +427,11 @@ export default function App() {
         15,
       );
 
-      pdf.addImage(imgData, "PNG", 0, 20, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, "JPEG", 0, 20, pdfWidth, pdfHeight);
       pdf.save(`WQI_Layout_Export_${methodConfig.id}.pdf`);
     } catch (err) {
       console.error("Failed to export PDF", err);
+      alert("PDF Export encountered an error. A map layer might be blocking it. Try switching to Carto Light basemap.");
     }
   };
 
@@ -428,24 +439,29 @@ export default function App() {
     const el = document.getElementById("export-container");
     if (!el) return;
     try {
-      const dataURL = await toPng(el, {
-        cacheBust: true,
-        pixelRatio: 2,
+      const canvas = await html2canvas(el, {
+        useCORS: true,
+        allowTaint: false,
+        scale: 2,
         backgroundColor: "#f5f5f5",
-        skipFonts: true,
-        filter: (node) => {
-          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') {
-            if ((node as HTMLLinkElement).href.includes('fonts.googleapis.com')) return false;
+        ignoreElements: (node) => {
+          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
+            return true;
           }
-          return true;
+          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
+            return true;
+          }
+          return false;
         }
       });
+      const dataURL = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = `HYDROQUALIX_View_${methodConfig.id}.png`;
       link.href = dataURL;
       link.click();
     } catch (err) {
       console.error("Failed to export PNG", err);
+      alert("PNG Export encountered an error. A map layer might be blocking it. Try switching to Carto Light basemap.");
     }
   };
 
@@ -475,54 +491,8 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={() => setIsAiAssistantOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 rounded-md hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-900/20 border border-cyan-400/30"
-          >
-            <Sparkles className="w-4 h-4 text-cyan-100" />
-            Gemini AI Assistant
-          </button>
-          <label className="text-sm font-medium flex items-center gap-2 text-cyan-50 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/20 transition-colors hover:bg-white/20 focus-within:bg-white/20">
-            <Layers className="w-4 h-4 text-cyan-300" />
-            RS Interpolation:
-            <select
-              className="bg-transparent border-none text-white font-semibold focus:ring-0 cursor-pointer outline-none ml-1 appearance-none min-w-[60px]"
-              value={interpMethod}
-              onChange={(e) => setInterpMethod(e.target.value as any)}
-            >
-              <option className="text-slate-900" value="none">None</option>
-              <option className="text-slate-900" value="idw">IDW</option>
-              <option className="text-slate-900" value="kriging">Kriging (Spherical)</option>
-              <option className="text-slate-900" value="rbf">RBF</option>
-            </select>
-          </label>
-
-          <div className="flex bg-white/10 backdrop-blur-md rounded-md p-1 border border-white/20">
-            <button
-              onClick={exportToExcel}
-              className="p-1.5 text-cyan-100 hover:text-white hover:bg-white/20 rounded transition-all tooltip-trigger"
-              title="Export to Excel"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-            </button>
-            <button
-              onClick={exportToPDF}
-              className="p-1.5 text-cyan-100 hover:text-white hover:bg-white/20 rounded transition-all tooltip-trigger"
-              title="Export to PDF"
-            >
-              <FileText className="w-4 h-4" />
-            </button>
-            <button
-              onClick={exportGraphToPNG}
-              className="p-1.5 text-cyan-100 hover:text-white hover:bg-white/20 rounded transition-all tooltip-trigger"
-              title="Export Graph to PNG"
-            >
-              <FileImage className="w-4 h-4" />
-            </button>
-          </div>
-
-          <label className="text-sm font-medium flex items-center gap-2 text-cyan-50 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/20 transition-colors hover:bg-white/20 focus-within:bg-white/20">
+        <div className="flex flex-nowrap items-center justify-center gap-2 md:gap-3 overflow-x-auto pb-1 md:pb-0 hide-scrollbar shrink-0">
+          <label className="text-sm font-medium flex items-center gap-2 text-cyan-50 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/20 transition-colors hover:bg-white/20 focus-within:bg-white/20 whitespace-nowrap shrink-0">
             <Settings2 className="w-4 h-4 text-cyan-300" />
             Method:
             <select
@@ -539,10 +509,31 @@ export default function App() {
           </label>
           <button
             onClick={() => setIsMethodInfoModalOpen(true)}
-            className="p-1.5 text-cyan-100 bg-white/10 border border-white/20 hover:text-white hover:bg-white/20 rounded-md transition-all shadow-sm"
+            className="p-1.5 text-cyan-100 bg-white/10 border border-white/20 hover:text-white hover:bg-white/20 rounded-md transition-all shadow-sm shrink-0"
             title="Method Information & WQI Categories"
           >
             <Info className="w-4 h-4 pl-[0.5px]" />
+          </button>
+          <label className="text-sm font-medium flex items-center gap-2 text-cyan-50 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-md border border-white/20 transition-colors hover:bg-white/20 focus-within:bg-white/20 whitespace-nowrap shrink-0">
+            <Layers className="w-4 h-4 text-cyan-300" />
+            RS Interpolation:
+            <select
+              className="bg-transparent border-none text-white font-semibold focus:ring-0 cursor-pointer outline-none ml-1 appearance-none min-w-[60px]"
+              value={interpMethod}
+              onChange={(e) => setInterpMethod(e.target.value as any)}
+            >
+              <option className="text-slate-900" value="none">None</option>
+              <option className="text-slate-900" value="idw">IDW</option>
+              <option className="text-slate-900" value="kriging">Kriging (Spherical)</option>
+              <option className="text-slate-900" value="rbf">RBF</option>
+            </select>
+          </label>
+          <button
+            onClick={() => setIsAiAssistantOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 rounded-md hover:from-cyan-500 hover:to-blue-500 transition-all shadow-md shadow-cyan-900/20 border border-cyan-400/30 whitespace-nowrap shrink-0"
+          >
+            <Sparkles className="w-4 h-4 text-cyan-100" />
+            Gemini AI Assistant
           </button>
         </div>
       </header>
@@ -551,6 +542,44 @@ export default function App() {
         id="export-container"
         className="flex-1 max-w-[1400px] w-full mx-auto p-6 flex flex-col gap-6 bg-[#f4f7fb] pb-12"
       >
+        <div className="flex justify-between items-center bg-white rounded-xl shadow-sm border border-slate-200/60 px-5 py-3 -mb-2 z-10 w-full overflow-hidden">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold tracking-wide text-cyan-800 uppercase flex items-center gap-2">
+              <Activity className="w-4 h-4" />
+              Workspace Dashboard
+            </h2>
+            <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-100 text-cyan-800 border border-cyan-200 uppercase tracking-wider">
+              {selectedMethod.toUpperCase()}
+            </span>
+          </div>
+          <div className="flex bg-slate-50 rounded-lg p-1 border border-slate-200 gap-1 overflow-x-auto hide-scrollbar">
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200 transition-all shadow-sm"
+              title="Export to Excel"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span className="hidden sm:inline">Excel</span>
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200 transition-all shadow-sm"
+              title="Export to PDF"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </button>
+            <button
+              onClick={exportGraphToPNG}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-md hover:bg-cyan-50 hover:text-cyan-700 hover:border-cyan-200 transition-all shadow-sm"
+              title="Export Dashboard to PNG"
+            >
+              <FileImage className="w-4 h-4" />
+              <span className="hidden sm:inline">PNG</span>
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
           {/* Left Column: Data & Map */}
           <div className="xl:col-span-2 flex flex-col gap-6">
@@ -568,25 +597,29 @@ export default function App() {
                     const el = document.getElementById("map-container-export");
                     if (!el) return;
                     try {
-                      const dataURL = await toPng(el, {
-                        cacheBust: true,
-                        pixelRatio: 2,
+                      const canvas = await html2canvas(el, {
+                        useCORS: true,
+                        allowTaint: false,
+                        scale: 2,
                         backgroundColor: "#ffffff",
-                        skipFonts: true,
-                        filter: (node) => {
-                          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') {
-                            if ((node as HTMLLinkElement).href.includes('fonts.googleapis.com')) return false;
+                        ignoreElements: (node) => {
+                          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
+                            return true;
                           }
-                          return true;
+                          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
+                            return true;
+                          }
+                          return false;
                         }
                       });
+                      const dataURL = canvas.toDataURL("image/png");
                       const link = document.createElement("a");
                       link.download = `Map_Export_${methodConfig.id}.png`;
                       link.href = dataURL;
                       link.click();
                     } catch (err) {
                       console.error("Failed to export Map as PNG", err);
-                      alert("Failed to capture map. Some tile layers might block cross-origin requests.");
+                      alert("Failed to capture map. Some tile layers (like Google Streets) strictly block cross-origin export. Try switching to Carto Light basemap before exporting.");
                     }
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-md hover:bg-cyan-100 hover:border-cyan-300 transition-all shadow-sm"
@@ -597,7 +630,7 @@ export default function App() {
                 </button>
                 <input
                   type="file"
-                  accept=".kml,.zip"
+                  accept=".kml,.json,.geojson"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
                   className="hidden"
@@ -607,7 +640,7 @@ export default function App() {
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 hover:border-blue-300 transition-all shadow-sm"
                 >
                   <Upload className="w-3 h-3" />
-                  Import Boundary (KML/SHP)
+                  Import Boundary (KML/JSON)
                 </button>
               </div>
             </div>
@@ -618,6 +651,7 @@ export default function App() {
                 preferCanvas={true}
                 style={{ height: "100%", width: "100%", zIndex: 1 }}
               >
+                <GeomanControl />
                 <InterpolationOverlay
                   methodId={selectedMethod}
                   interpMethod={interpMethod}
@@ -862,9 +896,11 @@ export default function App() {
         <div className="flex flex-col gap-6 sticky top-24">
           {/* Site Selector / List Summary */}
           <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-blue-100/60 overflow-hidden flex flex-col transition-shadow hover:shadow-[0_8px_30px_rgba(4,102,122,0.06)]">
-            <h3 className="text-xs font-bold tracking-wide uppercase text-slate-500 px-5 py-3 border-b border-blue-50 bg-gradient-to-r from-blue-50/50 to-cyan-50/30">
-              Sample Sites Overview
-            </h3>
+            <div className="px-5 py-3 border-b border-blue-50 bg-gradient-to-r from-blue-50/50 to-cyan-50/30 flex justify-between items-center gap-2">
+              <h3 className="text-xs font-bold tracking-wide uppercase text-slate-500">
+                Sample Sites Overview
+              </h3>
+            </div>
             <div className="divide-y divide-slate-100/50 max-h-[300px] overflow-y-auto">
               {siteResults.map((res) => (
                 <button
