@@ -1,5 +1,5 @@
 {
-  "name": "HYDROQUALIX-4™",
+  "name": "HYDROQUALIX-4",
   "description": "An Excel-like spreadsheet application to calculate Water Quality Index using WAWQI, NSF-WQI, OWQI, and CCME-WQI methods.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

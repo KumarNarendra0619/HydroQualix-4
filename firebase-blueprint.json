@@ -1,0 +1,16 @@
+{
+  "entities": {
+    "connectionTest": {
+      "title": "Connection Test",
+      "description": "A dummy entity for testing Firestore connections",
+      "type": "object",
+      "properties": {}
+    }
+  },
+  "firestore": {
+    "tests/{testId}": {
+      "schema": "connectionTest",
+      "description": "Dummy tests collection to verify connection"
+    }
+  }
+}

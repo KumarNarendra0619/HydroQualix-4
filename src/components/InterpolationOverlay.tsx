@@ -13,6 +13,7 @@ interface InterpolationOverlayProps {
   methodId: MethodId;
   points: SpatialPoint[];
   interpMethod: 'none' | 'idw' | 'kriging' | 'rbf';
+  geojson?: any;
 }
 
 function getScoreColor(score: number, methodId: MethodId): [number, number, number, number] {
@@ -55,7 +56,54 @@ function getScoreColor(score: number, methodId: MethodId): [number, number, numb
   ] : [0, 0, 0, 0];
 }
 
-export function InterpolationOverlay({ methodId, points, interpMethod }: InterpolationOverlayProps) {
+function drawGeoJsonToCanvas(ctx: CanvasRenderingContext2D, geojson: any, bounds: L.LatLngBounds, width: number, height: number) {
+  if (!geojson) return;
+
+  const n = bounds.getNorth();
+  const s = bounds.getSouth();
+  const e = bounds.getEast();
+  const w = bounds.getWest();
+
+  const project = (coord: [number, number]) => {
+    const x = ((coord[0] - w) / (e - w)) * width;
+    const y = ((n - coord[1]) / (n - s)) * height;
+    return { x, y };
+  };
+
+  ctx.beginPath();
+
+  const drawPolygon = (coordinates: any[]) => {
+    coordinates.forEach((ring: any[]) => {
+      ring.forEach((coord, i) => {
+        const pt = project(coord);
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.closePath();
+    });
+  };
+
+  const processFeature = (geometry: any) => {
+    if(!geometry) return;
+    if (geometry.type === 'Polygon') {
+      drawPolygon(geometry.coordinates);
+    } else if (geometry.type === 'MultiPolygon') {
+      geometry.coordinates.forEach((polygonCoords: any[]) => drawPolygon(polygonCoords));
+    }
+  };
+
+  if (geojson.type === 'FeatureCollection') {
+    geojson.features.forEach((feature: any) => {
+      if (feature.geometry) processFeature(feature.geometry);
+    });
+  } else if (geojson.type === 'Feature') {
+    processFeature(geojson.geometry);
+  } else {
+    processFeature(geojson);
+  }
+}
+
+export function InterpolationOverlay({ methodId, points, interpMethod, geojson }: InterpolationOverlayProps) {
   const map = useMap();
   const [layers, setLayers] = useState<{ url: string; bounds: L.LatLngBounds } | null>(null);
 
@@ -139,7 +187,24 @@ export function InterpolationOverlay({ methodId, points, interpMethod }: Interpo
         }
       }
 
-      ctx.putImageData(imgData, 0, 0);
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.putImageData(imgData, 0, 0);
+        
+        if (geojson) {
+          ctx.save();
+          drawGeoJsonToCanvas(ctx, geojson, expandedBounds, width, height);
+          ctx.clip();
+          ctx.drawImage(tempCanvas, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.drawImage(tempCanvas, 0, 0);
+        }
+      }
+
       setLayers({ url: canvas.toDataURL('image/png'), bounds: expandedBounds });
     };
 
@@ -151,7 +216,7 @@ export function InterpolationOverlay({ methodId, points, interpMethod }: Interpo
       map.off('moveend', updateSurface);
       map.off('zoomend', updateSurface);
     };
-  }, [map, points, methodId, interpMethod]);
+  }, [map, points, methodId, interpMethod, geojson]);
 
   if (!layers) return null;
   return <ImageOverlay url={layers.url} bounds={layers.bounds} opacity={0.6} zIndex={10} />;

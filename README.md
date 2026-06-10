@@ -1,9 +1,3 @@
-# HYDROQUALIX-4™
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](Version)
-[![Status](https://img.shields.io/badge/status-active-success.svg)](Status)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20616816-orange.svg)](https://doi.org/10.5281/zenodo.20616816)
-[![Field](https://img.shields.io/badge/Field-Hydrology%20%7C%20Environmental%20Modelling%20%7C%20GeoAI-purple.svg)](https://kumarnarendra0619.github.io/HydroQualix-4/)
 <div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
 </div>

@@ -122,6 +122,21 @@ export function MethodInfoModal({ isOpen, onClose, methodId }: MethodInfoModalPr
               </table>
             </div>
           </div>
+
+          <div className="mt-6 pt-4 border-t border-neutral-200">
+            <h4 className="font-semibold text-neutral-700 mb-2 text-xs">Method Attribution Notice</h4>
+            <div className="text-[10px] text-neutral-500 leading-relaxed space-y-2">
+              <p>HYDROQUALIX-4&trade; implements established Water Quality Index methodologies including:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                {methodId === 'wawqi' && <li>WAWQI (Weighted Arithmetic Water Quality Index) &ndash; Horton (1965)</li>}
+                {methodId === 'nsf' && <li>NSF-WQI &ndash; Brown et al. (1970, 1972)</li>}
+                {methodId === 'owqi' && <li>OWQI (Oregon Water Quality Index) &ndash; Cude (2001)</li>}
+                {methodId === 'ccme' && <li>CCME-WQI &ndash; Canadian Council of Ministers of the Environment (2001)</li>}
+                {methodId === 'oip' && <li>OIP (Overall Index of Pollution) &ndash; Mishra &amp; Patel (2001)</li>}
+              </ul>
+              <p>The mathematical formulations, weighting schemes, and classification frameworks remain attributable to their original authors. HYDROQUALIX-4&trade; provides an integrated software implementation, automation framework, comparative analysis environment, reporting system, and decision-support platform for these methodologies.</p>
+            </div>
+          </div>
         </div>
         
         <div className="absolute bottom-0 w-full px-6 py-4 bg-neutral-50 border-t border-neutral-200 flex justify-end">
