@@ -22,5 +22,8 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm ci
+    - name: Clean install dependencies
+      run: |
+        rm -f package-lock.json
+        npm ci --verbose
     - run: npm run build
