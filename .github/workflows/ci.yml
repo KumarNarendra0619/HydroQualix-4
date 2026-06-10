@@ -22,8 +22,9 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - name: Clean install dependencies
+    - name: Clear npm cache and install dependencies
       run: |
-        rm -f package-lock.json
-        npm ci --verbose
+        npm cache clean --force
+        rm -rf node_modules package-lock.json
+        npm ci
     - run: npm run build
