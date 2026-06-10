@@ -42,6 +42,7 @@ import jsPDF from "jspdf";
 import { toPng } from "html-to-image";
 import { kml } from "@tmcw/togeojson";
 import * as shp from "shpjs";
+import logoImage from "./assets/images/regenerated_image_1781058596490.png";
 
 function parseCoordinate(coord: string | number): number {
   if (typeof coord === 'number') return coord;
@@ -455,12 +456,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-sans flex flex-col">
       <header className="bg-gradient-to-r from-slate-900 via-[#0a485c] to-[#04667a] text-white px-6 py-4 flex flex-col md:flex-row items-center justify-between sticky top-0 z-20 gap-4 shadow-lg border-b border-cyan-800/40">
-        <div className="flex items-center gap-3">
-          <div className="flex-shrink-0 relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 transition-transform duration-300 hover:scale-105 cursor-pointer flex items-center justify-center p-1 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20 shadow-inner">
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 relative h-16 w-auto sm:h-24 transition-transform duration-300 hover:scale-105 cursor-pointer flex items-center justify-center p-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20 shadow-inner">
             <img
-              src="/Hydro_48.png"
+              src={logoImage}
+              loading="lazy"
               alt="HYDROQUALIX-4 Logo"
-              className="w-full h-full object-contain drop-shadow-lg transition-all duration-1000 ease-in-out hover:rotate-[360deg] hover:scale-110"
+              className="h-full w-auto object-contain drop-shadow-lg transition-all duration-1000 ease-in-out hover:rotate-[360deg] hover:scale-110"
             />
           </div>
           <div>

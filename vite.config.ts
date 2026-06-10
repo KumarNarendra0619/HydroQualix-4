@@ -52,10 +52,18 @@ export default defineConfig(() => {
     build: {
       target: 'esnext',
       minify: 'esbuild',
+      cssMinify: true,
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('react-dom')) return 'react-core';
+              if (id.includes('leaflet') || id.includes('react-leaflet')) return 'leaflet-maps';
+              if (id.includes('recharts') || id.includes('d3')) return 'charts-lib';
+              if (id.includes('xlsx')) return 'excel-lib';
+              if (id.includes('jspdf') || id.includes('html-to-image')) return 'export-utils';
+              if (id.includes('firebase')) return 'firebase-core';
+              if (id.includes('lucide-react')) return 'icons';
               return 'vendor';
             }
           }
