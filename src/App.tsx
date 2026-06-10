@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   BarChart,
@@ -40,7 +41,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { toPng, toJpeg } from "html-to-image";
 import { kml } from "@tmcw/togeojson";
 import logoImage from "./assets/images/regenerated_image_1781058596490.png";
 import { GeomanControl } from "./components/GeomanControl";
@@ -395,30 +396,30 @@ export default function App() {
       // Temporarily add a class to body to prevent scrollbars or layout shifts
       document.body.style.overflow = 'hidden';
       
-      const canvas = await html2canvas(el, {
-        useCORS: true,
-        allowTaint: false,
-        scale: 2,
+      const imgData = await toJpeg(el, {
+        cacheBust: true,
+        pixelRatio: 1.5,
         backgroundColor: "#f5f5f5",
-        ignoreElements: (node) => {
-          // skip google fonts causing CORS errors with html2canvas
-          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
-            return true;
-          }
-          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
-            return true; // Filter Google map tiles
-          }
-          return false;
+        skipFonts: true,
+        filter: (node) => {
+          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') return false;
+          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) return false;
+          return true;
         }
       });
       
       document.body.style.overflow = '';
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const imgProps = new Image();
+      imgProps.src = imgData;
+      await new Promise((resolve, reject) => {
+        imgProps.onload = resolve;
+        imgProps.onerror = reject;
+      });
 
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
       pdf.setFontSize(16);
       pdf.text(
@@ -439,22 +440,17 @@ export default function App() {
     const el = document.getElementById("export-container");
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, {
-        useCORS: true,
-        allowTaint: false,
-        scale: 2,
+      const dataURL = await toPng(el, {
+        cacheBust: true,
+        pixelRatio: 1.5,
         backgroundColor: "#f5f5f5",
-        ignoreElements: (node) => {
-          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
-            return true;
-          }
-          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
-            return true;
-          }
-          return false;
+        skipFonts: true,
+        filter: (node) => {
+          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') return false;
+          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) return false;
+          return true;
         }
       });
-      const dataURL = canvas.toDataURL("image/png");
       const link = document.createElement("a");
       link.download = `HYDROQUALIX_View_${methodConfig.id}.png`;
       link.href = dataURL;
@@ -473,14 +469,21 @@ export default function App() {
     <div className="min-h-screen bg-[#f4f7fb] text-slate-800 font-sans flex flex-col">
       <header className="bg-gradient-to-r from-slate-900 via-[#0a485c] to-[#04667a] text-white px-6 py-4 flex flex-col md:flex-row items-center justify-between sticky top-0 z-20 gap-4 shadow-lg border-b border-cyan-800/40">
         <div className="flex items-center gap-4">
-          <div className="flex-shrink-0 relative h-16 w-auto sm:h-24 transition-transform duration-300 hover:scale-105 cursor-pointer flex items-center justify-center p-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20 shadow-inner">
-            <img
+          <motion.div 
+            animate={{ y: [0, -6, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="flex-shrink-0 relative h-16 w-auto sm:h-24 cursor-pointer flex items-center justify-center p-1.5 bg-white/10 rounded-[20%] backdrop-blur-md border border-white/20 shadow-inner overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-[#eae2df] rounded-[20%] mix-blend-overlay"></div>
+            <motion.img
+              animate={{ rotate: [0, 4, -4, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               src={logoImage}
               loading="lazy"
               alt="HYDROQUALIX-4 Logo"
-              className="h-full w-auto object-contain drop-shadow-lg transition-all duration-1000 ease-in-out hover:rotate-[360deg] hover:scale-110"
+              className="h-full w-auto object-contain drop-shadow-2xl relative z-10"
             />
-          </div>
+          </motion.div>
           <div>
             <h1 className="font-bold text-xl leading-tight tracking-tight text-white bg-clip-text text-transparent bg-gradient-to-br from-white to-cyan-200">
               HYDROQUALIX-4&trade;
@@ -597,22 +600,18 @@ export default function App() {
                     const el = document.getElementById("map-container-export");
                     if (!el) return;
                     try {
-                      const canvas = await html2canvas(el, {
-                        useCORS: true,
-                        allowTaint: false,
-                        scale: 2,
+                      // Using toPng with skipFonts works around html2canvas oklch crash
+                      const dataURL = await toPng(el, {
+                        cacheBust: true,
+                        pixelRatio: 1.5,
                         backgroundColor: "#ffffff",
-                        ignoreElements: (node) => {
-                          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet' && (node as HTMLLinkElement).href.includes('fonts.googleapis.com')) {
-                            return true;
-                          }
-                          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) {
-                            return true;
-                          }
-                          return false;
+                        skipFonts: true,
+                        filter: (node) => {
+                          if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') return false;
+                          if (node.tagName === 'IMG' && (node as HTMLImageElement).src?.includes('google.com/vt')) return false;
+                          return true;
                         }
                       });
-                      const dataURL = canvas.toDataURL("image/png");
                       const link = document.createElement("a");
                       link.download = `Map_Export_${methodConfig.id}.png`;
                       link.href = dataURL;
